@@ -76,6 +76,31 @@ model_nobn.add(LeakyReLU(alpha=0.1))
 model_nobn.add(Conv2D(125, (1, 1), padding="same", activation='linear'))
 #model_nobn.summary()
 
+def fold_batch_norm_dumbofly(conv_layer, bn_layer):
+    """Fold the batch normalization parameters into the weights for
+       the previous layer.
+       Add bias in the function.   
+    """
+    conv_weights = conv_layer.get_weights()[0]
+    conv_bias = conv_layer.get_weights()[1]
+
+    # Keras stores the learnable weights for a BatchNormalization layer
+    # as four separate arrays:
+    #   0 = gamma (if scale == True)
+    #   1 = beta (if center == True)
+    #   2 = moving mean
+    #   3 = moving variance
+    bn_weights = bn_layer.get_weights()
+    beta = bn_weights[0]
+    gamma = bn_weights[1]
+    mean = bn_weights[2]
+    variance = bn_weights[3]
+
+    epsilon = 1e-3
+    new_weights = conv_weights * gamma / np.sqrt(variance + epsilon)
+    new_bias = (conv_bias- mean) * gamma / np.sqrt(variance + epsilon) + beta
+    return new_weights, new_bias
+
 def fold_batch_norm(conv_layer, bn_layer):
     """Fold the batch normalization parameters into the weights for 
        the previous layer."""
